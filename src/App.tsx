@@ -92,6 +92,29 @@ export default function App() {
     };
   }, []);
 
+  // 全局“无感解锁”：用户只要动一下，音乐就响应
+  useEffect(() => {
+    const unlock = () => {
+      if (menuAudioRef.current && menuAudioRef.current.paused) {
+        menuAudioRef.current.play().catch(() => { });
+      }
+      // 成功触发后移除所有监听
+      window.removeEventListener('mousedown', unlock);
+      window.removeEventListener('touchstart', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+
+    window.addEventListener('mousedown', unlock, { once: true });
+    window.addEventListener('touchstart', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+
+    return () => {
+      window.removeEventListener('mousedown', unlock);
+      window.removeEventListener('touchstart', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
+
   // Manage music playback based on game state
   useEffect(() => {
     // Menu music phases: NOT in a room, waiting in lobby, or game results screen
@@ -107,7 +130,7 @@ export default function App() {
       menuAudioRef.current?.pause();
       battleAudioRef.current?.play().catch(() => { });
     }
-  }, [gameState?.phase, currentRoom]);
+  }, [gameState?.phase, currentRoom, view]);
 
   // Refs to avoid stale closures in socket listeners
   const nameInputRef = useRef(nameInput);
@@ -161,6 +184,7 @@ export default function App() {
   const handleNameSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (nameInput.trim()) {
+      menuAudioRef.current?.play().catch(() => { }); // 提交时双重保险
       localStorage.setItem('playerName', nameInput.trim());
       localStorage.setItem('playerAvatar', selectedAvatar);
       setView('roomSelection');
@@ -216,7 +240,10 @@ export default function App() {
                       key={url}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => setSelectedAvatar(url)}
+                      onClick={() => {
+                        setSelectedAvatar(url);
+                        menuAudioRef.current?.play().catch(() => { }); // 点头像也解锁
+                      }}
                       className={cn(
                         "aspect-square rounded-2xl border-4 cursor-pointer overflow-hidden transition-all",
                         selectedAvatar === url ? "border-emerald-500 shadow-lg scale-105" : "border-slate-100 opacity-60 hover:opacity-100"
